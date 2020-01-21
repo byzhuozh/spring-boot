@@ -38,7 +38,7 @@ public class SimpleStatusAggregator implements StatusAggregator {
 
 	private static final List<String> DEFAULT_ORDER;
 	static {
-		List<String> defaultOrder = new ArrayList<String>();
+		List<String> defaultOrder = new ArrayList<>();
 		defaultOrder.add(Status.DOWN.getCode());
 		defaultOrder.add(Status.OUT_OF_SERVICE.getCode());
 		defaultOrder.add(Status.UP.getCode());
@@ -69,7 +69,7 @@ public class SimpleStatusAggregator implements StatusAggregator {
 
 	@Override
 	public Status getAggregateStatus(Set<Status> statuses) {
-		return statuses.stream().filter(this::contains).sorted(this.comparator).findFirst().orElse(Status.UNKNOWN);
+		return statuses.stream().filter(this::contains).min(this.comparator).orElse(Status.UNKNOWN);
 	}
 
 	private boolean contains(Status status) {

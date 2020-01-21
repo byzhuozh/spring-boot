@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -101,6 +101,8 @@ public class UndertowWebServerFactoryCustomizer
 		map.from(properties::isDecodeUrl).to(options.server(UndertowOptions.DECODE_URL));
 		map.from(properties::getUrlCharset).as(Charset::name).to(options.server(UndertowOptions.URL_CHARSET));
 		map.from(properties::isAlwaysSetKeepAlive).to(options.server(UndertowOptions.ALWAYS_SET_KEEP_ALIVE));
+		map.from(properties::getNoRequestTimeout).asInt(Duration::toMillis)
+				.to(options.server(UndertowOptions.NO_REQUEST_TIMEOUT));
 		map.from(properties.getOptions()::getServer).to(options.forEach(options::server));
 		map.from(properties.getOptions()::getSocket).to(options.forEach(options::socket));
 	}
@@ -121,7 +123,7 @@ public class UndertowWebServerFactoryCustomizer
 	}
 
 	private boolean getOrDeduceUseForwardHeaders() {
-		if (this.serverProperties.getForwardHeadersStrategy().equals(ServerProperties.ForwardHeadersStrategy.NONE)) {
+		if (this.serverProperties.getForwardHeadersStrategy() == null) {
 			CloudPlatform platform = CloudPlatform.getActive(this.environment);
 			return platform != null && platform.isUsingForwardHeaders();
 		}
@@ -166,16 +168,13 @@ public class UndertowWebServerFactoryCustomizer
 			return (value) -> this.factory.addBuilderCustomizers((builder) -> builder.setSocketOption(option, value));
 		}
 
-		@SuppressWarnings("unchecked")
 		<T> Consumer<Map<String, String>> forEach(Function<Option<T>, Consumer<T>> function) {
-			return (map) -> {
-				map.forEach((key, value) -> {
-					Option<T> option = (Option<T>) NAME_LOOKUP.get(getCanonicalName(key));
-					Assert.state(option != null, "Unable to find '" + key + "' in UndertowOptions");
-					T parsed = option.parseValue(value, getClass().getClassLoader());
-					function.apply(option).accept(parsed);
-				});
-			};
+			return (map) -> map.forEach((key, value) -> {
+				Option<T> option = (Option<T>) NAME_LOOKUP.get(getCanonicalName(key));
+				Assert.state(option != null, "Unable to find '" + key + "' in UndertowOptions");
+				T parsed = option.parseValue(value, getClass().getClassLoader());
+				function.apply(option).accept(parsed);
+			});
 		}
 
 		private static String getCanonicalName(String name) {

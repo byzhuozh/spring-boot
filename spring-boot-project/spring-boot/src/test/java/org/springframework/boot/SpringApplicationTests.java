@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -747,7 +747,7 @@ class SpringApplicationTests {
 	@Test
 	void wildcardSources() {
 		TestSpringApplication application = new TestSpringApplication();
-		application.getSources().add("classpath:org/springframework/boot/sample-${sample.app.test.prop}.xml");
+		application.getSources().add("classpath*:org/springframework/boot/sample-${sample.app.test.prop}.xml");
 		application.setWebApplicationType(WebApplicationType.NONE);
 		this.context = application.run();
 	}
@@ -1107,14 +1107,22 @@ class SpringApplicationTests {
 	}
 
 	@Test
-	void lazyInitializationShouldNotApplyToBeansThatAreExplicitlyNotLazy() {
+	void lazyInitializationIgnoresBeansThatAreExplicitlyNotLazy() {
 		assertThat(new SpringApplication(NotLazyInitializationConfig.class)
+				.run("--spring.main.web-application-type=none", "--spring.main.lazy-initialization=true")
+				.getBean(AtomicInteger.class)).hasValue(1);
+	}
+
+	@Test
+	void lazyInitializationIgnoresLazyInitializationExcludeFilteredBeans() {
+		assertThat(new SpringApplication(LazyInitializationExcludeFilterConfig.class)
 				.run("--spring.main.web-application-type=none", "--spring.main.lazy-initialization=true")
 				.getBean(AtomicInteger.class)).hasValue(1);
 	}
 
 	private Condition<ConfigurableEnvironment> matchingPropertySource(final Class<?> propertySourceClass,
 			final String name) {
+
 		return new Condition<ConfigurableEnvironment>("has property source") {
 
 			@Override
@@ -1417,6 +1425,34 @@ class SpringApplicationTests {
 				counter.getAndIncrement();
 			}
 
+		}
+
+	}
+
+	@Configuration(proxyBeanMethods = false)
+	static class LazyInitializationExcludeFilterConfig {
+
+		@Bean
+		AtomicInteger counter() {
+			return new AtomicInteger(0);
+		}
+
+		@Bean
+		NotLazyBean notLazyBean(AtomicInteger counter) {
+			return new NotLazyBean(counter);
+		}
+
+		@Bean
+		static LazyInitializationExcludeFilter lazyInitializationExcludeFilter() {
+			return LazyInitializationExcludeFilter.forBeanTypes(NotLazyBean.class);
+		}
+
+	}
+
+	static class NotLazyBean {
+
+		NotLazyBean(AtomicInteger counter) {
+			counter.getAndIncrement();
 		}
 
 	}

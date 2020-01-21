@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,6 +44,7 @@ import org.springframework.boot.loader.tools.Layout;
 import org.springframework.boot.loader.tools.LayoutFactory;
 import org.springframework.boot.loader.tools.Layouts.Expanded;
 import org.springframework.boot.loader.tools.Layouts.Jar;
+import org.springframework.boot.loader.tools.Layouts.LayeredJar;
 import org.springframework.boot.loader.tools.Layouts.None;
 import org.springframework.boot.loader.tools.Layouts.War;
 import org.springframework.boot.loader.tools.Libraries;
@@ -51,7 +52,7 @@ import org.springframework.boot.loader.tools.Repackager;
 import org.springframework.boot.loader.tools.Repackager.MainClassTimeoutWarningListener;
 
 /**
- * Repackages existing JAR and WAR archives so that they can be executed from the command
+ * Repackage existing JAR and WAR archives so that they can be executed from the command
  * line using {@literal java -jar}. With <code>layout=NONE</code> can also be used simply
  * to package a JAR with nested dependencies (and no main class, so not executable).
  *
@@ -112,14 +113,19 @@ public class RepackageMojo extends AbstractDependencyFilterMojo {
 	 * attached as a supplemental artifact with that classifier. Attaching the artifact
 	 * allows to deploy it alongside to the original one, see <a href=
 	 * "https://maven.apache.org/plugins/maven-deploy-plugin/examples/deploying-with-classifiers.html"
-	 * > the maven documentation for more details</a>.
+	 * >the Maven documentation for more details</a>.
 	 * @since 1.0.0
 	 */
 	@Parameter
 	private String classifier;
 
 	/**
-	 * Attach the repackaged archive to be installed and deployed.
+	 * Attach the repackaged archive to be installed into your local Maven repository or
+	 * deployed to a remote repository. If no classifier has been configured, it will
+	 * replace the normal jar. If a {@code classifier} has been configured such that the
+	 * normal jar and the repackaged jar are different, it will be attached alongside the
+	 * normal jar. When the property is set to {@code false}, the repackaged archive will
+	 * not be installed or deployed.
 	 * @since 1.4.0
 	 */
 	@Parameter(defaultValue = "true")
@@ -135,8 +141,8 @@ public class RepackageMojo extends AbstractDependencyFilterMojo {
 
 	/**
 	 * The type of archive (which corresponds to how the dependencies are laid out inside
-	 * it). Possible values are JAR, WAR, ZIP, DIR, NONE. Defaults to a guess based on the
-	 * archive type.
+	 * it). Possible values are JAR, LAYERED_JAR, WAR, ZIP, DIR, NONE. Defaults to a guess
+	 * based on the archive type.
 	 * @since 1.0.0
 	 */
 	@Parameter(property = "spring-boot.repackage.layout")
@@ -374,6 +380,11 @@ public class RepackageMojo extends AbstractDependencyFilterMojo {
 		 * Jar Layout.
 		 */
 		JAR(new Jar()),
+
+		/**
+		 * Layered Jar Layout.
+		 */
+		LAYERED_JAR(new LayeredJar()),
 
 		/**
 		 * War Layout.

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -43,6 +44,7 @@ import static org.mockito.Mockito.mock;
  *
  * @author Brian Clozel
  * @author Dmytro Nosan
+ * @author Madhura Bhave
  */
 @ExtendWith(OutputCaptureExtension.class)
 class WebFluxMetricsAutoConfigurationTests {
@@ -55,7 +57,19 @@ class WebFluxMetricsAutoConfigurationTests {
 		this.contextRunner.run((context) -> {
 			assertThat(context).getBeans(MetricsWebFilter.class).hasSize(1);
 			assertThat(context).getBeans(DefaultWebFluxTagsProvider.class).hasSize(1);
+			assertThat(ReflectionTestUtils.getField(context.getBean(DefaultWebFluxTagsProvider.class),
+					"ignoreTrailingSlash")).isEqualTo(true);
 		});
+	}
+
+	@Test
+	void tagsProviderWhenIgnoreTrailingSlashIsFalse() {
+		this.contextRunner.withPropertyValues("management.metrics.web.server.request.ignore-trailing-slash=false")
+				.run((context) -> {
+					assertThat(context).hasSingleBean(DefaultWebFluxTagsProvider.class);
+					assertThat(ReflectionTestUtils.getField(context.getBean(DefaultWebFluxTagsProvider.class),
+							"ignoreTrailingSlash")).isEqualTo(false);
+				});
 	}
 
 	@Test
@@ -93,17 +107,6 @@ class WebFluxMetricsAutoConfigurationTests {
 		this.contextRunner.withConfiguration(AutoConfigurations.of(WebFluxAutoConfiguration.class))
 				.withUserConfiguration(TestController.class)
 				.withPropertyValues("management.metrics.web.server.request.autotime.enabled=false").run((context) -> {
-					MeterRegistry registry = getInitializedMeterRegistry(context);
-					assertThat(registry.find("http.server.requests").meter()).isNull();
-				});
-	}
-
-	@Test
-	@Deprecated
-	void metricsAreNotRecordedIfAutoTimeRequestsIsDisabledWithDeprecatedProperty() {
-		this.contextRunner.withConfiguration(AutoConfigurations.of(WebFluxAutoConfiguration.class))
-				.withUserConfiguration(TestController.class)
-				.withPropertyValues("management.metrics.web.server.auto-time-requests=false").run((context) -> {
 					MeterRegistry registry = getInitializedMeterRegistry(context);
 					assertThat(registry.find("http.server.requests").meter()).isNull();
 				});

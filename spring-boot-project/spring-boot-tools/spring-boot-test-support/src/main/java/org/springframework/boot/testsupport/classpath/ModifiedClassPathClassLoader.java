@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.regex.Pattern;
@@ -50,6 +51,7 @@ import org.eclipse.aether.transport.http.HttpTransporterFactory;
 import org.springframework.core.annotation.MergedAnnotation;
 import org.springframework.core.annotation.MergedAnnotations;
 import org.springframework.util.AntPathMatcher;
+import org.springframework.util.ConcurrentReferenceHashMap;
 import org.springframework.util.StringUtils;
 
 /**
@@ -59,6 +61,8 @@ import org.springframework.util.StringUtils;
  * @author Christoph Dreis
  */
 final class ModifiedClassPathClassLoader extends URLClassLoader {
+
+	private static final Map<Class<?>, ModifiedClassPathClassLoader> cache = new ConcurrentReferenceHashMap<>();
 
 	private static final Pattern INTELLIJ_CLASSPATH_JAR_PATTERN = Pattern.compile(".*classpath(\\d+)?\\.jar");
 
@@ -78,6 +82,10 @@ final class ModifiedClassPathClassLoader extends URLClassLoader {
 	}
 
 	static ModifiedClassPathClassLoader get(Class<?> testClass) {
+		return cache.computeIfAbsent(testClass, ModifiedClassPathClassLoader::compute);
+	}
+
+	private static ModifiedClassPathClassLoader compute(Class<?> testClass) {
 		ClassLoader classLoader = testClass.getClassLoader();
 		return new ModifiedClassPathClassLoader(processUrls(extractUrls(classLoader), testClass),
 				classLoader.getParent(), classLoader);
@@ -164,9 +172,8 @@ final class ModifiedClassPathClassLoader extends URLClassLoader {
 		MergedAnnotations annotations = MergedAnnotations.from(testClass,
 				MergedAnnotations.SearchStrategy.TYPE_HIERARCHY);
 		ClassPathEntryFilter filter = new ClassPathEntryFilter(annotations.get(ClassPathExclusions.class));
-		List<URL> processedUrls = new ArrayList<>();
 		List<URL> additionalUrls = getAdditionalUrls(annotations.get(ClassPathOverrides.class));
-		processedUrls.addAll(additionalUrls);
+		List<URL> processedUrls = new ArrayList<>(additionalUrls);
 		for (URL url : urls) {
 			if (!filter.isExcluded(url)) {
 				processedUrls.add(url);
